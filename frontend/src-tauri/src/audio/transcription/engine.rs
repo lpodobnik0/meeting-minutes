@@ -74,6 +74,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 api_key: None,
+                endpoint_url: None,
+                language: None,
             }
         }
         Err(e) => {
@@ -82,6 +84,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 api_key: None,
+                endpoint_url: None,
+                language: None,
             }
         }
     };
@@ -135,10 +139,21 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 }
             }
         }
+        "remoteEndpoint" => {
+            info!("🌐 Validating remote endpoint transcription provider...");
+            let endpoint_url = config.endpoint_url.unwrap_or_default();
+            if endpoint_url.trim().is_empty() {
+                warn!("❌ Remote endpoint URL is not configured");
+                Err("Remote endpoint URL is not set. Please enter the endpoint URL in Settings → Transcript.".to_string())
+            } else {
+                info!("✅ Remote endpoint URL configured: {}", endpoint_url);
+                Ok(())
+            }
+        }
         other => {
             warn!("❌ Unsupported transcription provider for local recording: {}", other);
             Err(format!(
-                "Provider '{}' is not supported for local transcription. Please select 'localWhisper' or 'parakeet'.",
+                "Provider '{}' is not supported for local transcription. Please select 'localWhisper', 'parakeet', or 'remoteEndpoint'.",
                 other
             ))
         }
@@ -170,6 +185,8 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 api_key: None,
+                endpoint_url: None,
+                language: None,
             }
         }
         Err(e) => {
@@ -178,6 +195,8 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 api_key: None,
+                endpoint_url: None,
+                language: None,
             }
         }
     };
@@ -211,6 +230,29 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                     Err("Parakeet engine not initialized. This should not happen after validation.".to_string())
                 }
             }
+        }
+        "remoteEndpoint" => {
+            info!("🌐 Initializing remote endpoint transcription provider");
+            let endpoint_url = config.endpoint_url.unwrap_or_default();
+            if endpoint_url.trim().is_empty() {
+                return Err("Remote endpoint URL is not configured. Please set it in Settings → Transcript.".to_string());
+            }
+            let api_key = config.api_key.filter(|k| !k.is_empty());
+            let model = if config.model.is_empty() {
+                "whisper-1".to_string()
+            } else {
+                config.model
+            };
+            // Filter out "auto"/"auto-translate" so the provider sends no language hint (server auto-detects)
+            let language = config.language.filter(|l| !l.is_empty() && l != "auto" && l != "auto-translate");
+            info!("🌐 Remote endpoint: {}, model: {}, language: {:?}", endpoint_url, model, language);
+            let provider = crate::audio::transcription::RemoteTranscriptionProvider::new(
+                endpoint_url,
+                api_key,
+                model,
+                language,
+            );
+            Ok(TranscriptionEngine::Provider(std::sync::Arc::new(provider)))
         }
         "localWhisper" | _ => {
             info!("🎤 Initializing Whisper transcription engine");

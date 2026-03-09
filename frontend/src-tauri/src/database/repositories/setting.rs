@@ -184,6 +184,7 @@ impl SettingsRepository {
             "elevenLabs" => "elevenLabsApiKey",
             "groq" => "groqApiKey",
             "openai" => "openaiApiKey",
+            "remoteEndpoint" => "remoteEndpointApiKey",
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -216,6 +217,7 @@ impl SettingsRepository {
             "elevenLabs" => "elevenLabsApiKey",
             "groq" => "groqApiKey",
             "openai" => "openaiApiKey",
+            "remoteEndpoint" => "remoteEndpointApiKey",
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -308,6 +310,74 @@ impl SettingsRepository {
             }
             None => Ok(None),
         }
+    }
+
+    /// Save the remote endpoint URL for the remoteEndpoint transcript provider
+    pub async fn save_transcript_endpoint_url(
+        pool: &SqlitePool,
+        url: &str,
+    ) -> std::result::Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO transcript_settings (id, provider, model, remoteEndpointUrl)
+            VALUES ('1', 'remoteEndpoint', 'whisper-1', $1)
+            ON CONFLICT(id) DO UPDATE SET
+                remoteEndpointUrl = $1
+            "#,
+        )
+        .bind(url)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Get the remote endpoint URL for the remoteEndpoint transcript provider
+    pub async fn get_transcript_endpoint_url(
+        pool: &SqlitePool,
+    ) -> std::result::Result<Option<String>, sqlx::Error> {
+        let url: Option<String> = sqlx::query_scalar(
+            "SELECT remoteEndpointUrl FROM transcript_settings WHERE id = '1' LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+
+        Ok(url)
+    }
+
+    /// Save the language preference for the remoteEndpoint transcript provider
+    pub async fn save_transcript_endpoint_language(
+        pool: &SqlitePool,
+        language: &str,
+    ) -> std::result::Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO transcript_settings (id, provider, model, remoteEndpointLanguage)
+            VALUES ('1', 'remoteEndpoint', 'whisper-1', $1)
+            ON CONFLICT(id) DO UPDATE SET
+                remoteEndpointLanguage = $1
+            "#,
+        )
+        .bind(language)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Get the language preference for the remoteEndpoint transcript provider
+    pub async fn get_transcript_endpoint_language(
+        pool: &SqlitePool,
+    ) -> std::result::Result<Option<String>, sqlx::Error> {
+        let lang: Option<String> = sqlx::query_scalar(
+            "SELECT remoteEndpointLanguage FROM transcript_settings WHERE id = '1' LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+
+        Ok(lang)
     }
 
     /// Saves the custom OpenAI configuration as JSON

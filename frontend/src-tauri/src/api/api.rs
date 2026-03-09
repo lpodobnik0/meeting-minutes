@@ -102,6 +102,9 @@ pub struct TranscriptConfig {
     pub model: String,
     #[serde(rename = "apiKey")]
     pub api_key: Option<String>,
+    #[serde(rename = "endpointUrl")]
+    pub endpoint_url: Option<String>,
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -615,11 +618,34 @@ pub async fn api_get_transcript_config<R: Runtime>(
             );
             match SettingsRepository::get_transcript_api_key(pool, &config.provider).await {
                 Ok(api_key) => {
+                    // For remoteEndpoint, also fetch the endpoint URL and language
+                    let (endpoint_url, language) = if config.provider == "remoteEndpoint" {
+                        let url = match SettingsRepository::get_transcript_endpoint_url(pool).await {
+                            Ok(url) => url,
+                            Err(e) => {
+                                log_error!("Failed to get remote endpoint URL: {}", e);
+                                None
+                            }
+                        };
+                        let lang = match SettingsRepository::get_transcript_endpoint_language(pool).await {
+                            Ok(lang) => lang,
+                            Err(e) => {
+                                log_error!("Failed to get remote endpoint language: {}", e);
+                                None
+                            }
+                        };
+                        (url, lang)
+                    } else {
+                        (None, None)
+                    };
+
                     log_info!("Successfully retrieved transcript config and API key.");
                     Ok(Some(TranscriptConfig {
                         provider: config.provider,
                         model: config.model,
                         api_key,
+                        endpoint_url,
+                        language,
                     }))
                 }
                 Err(e) => {
@@ -638,6 +664,8 @@ pub async fn api_get_transcript_config<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: "parakeet-tdt-0.6b-v3-int8".to_string(),
                 api_key: None,
+                endpoint_url: None,
+                language: None,
             }))
         }
         Err(e) => {
@@ -654,6 +682,8 @@ pub async fn api_save_transcript_config<R: Runtime>(
     provider: String,
     model: String,
     api_key: Option<String>,
+    endpoint_url: Option<String>,
+    language: Option<String>,
     _auth_token: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log_info!(
@@ -674,6 +704,23 @@ pub async fn api_save_transcript_config<R: Runtime>(
             {
                 log_error!("Failed to save transcript API key: {}", e);
                 return Err(e.to_string());
+            }
+        }
+    }
+
+    // For remoteEndpoint, persist the endpoint URL and language
+    if provider == "remoteEndpoint" {
+        let url = endpoint_url.unwrap_or_default();
+        if let Err(e) = SettingsRepository::save_transcript_endpoint_url(pool, &url).await {
+            log_error!("Failed to save remote endpoint URL: {}", e);
+            return Err(e.to_string());
+        }
+        if let Some(lang) = language {
+            if !lang.is_empty() {
+                if let Err(e) = SettingsRepository::save_transcript_endpoint_language(pool, &lang).await {
+                    log_error!("Failed to save remote endpoint language: {}", e);
+                    return Err(e.to_string());
+                }
             }
         }
     }

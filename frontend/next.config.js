@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Redirect .next build cache outside OneDrive-synced area to avoid file locking
+  distDir: process.env.NODE_ENV === 'development' ? '../../../target/next-dev' : '.next',
   reactStrictMode: false, // Disabled for BlockNote compatibility
   output: 'export',
   images: {

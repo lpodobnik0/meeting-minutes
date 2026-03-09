@@ -211,7 +211,8 @@ const Sidebar: React.FC = () => {
       const payload = {
         provider: configToSave.provider,
         model: configToSave.model,
-        apiKey: configToSave.apiKey ?? null
+        apiKey: configToSave.apiKey ?? null,
+        endpointUrl: configToSave.endpointUrl ?? null
       };
       console.log('Saving transcript config with payload:', payload);
 
@@ -219,6 +220,7 @@ const Sidebar: React.FC = () => {
         provider: payload.provider,
         model: payload.model,
         apiKey: payload.apiKey,
+        endpointUrl: payload.endpointUrl,
       });
 
 
@@ -507,8 +509,8 @@ const Sidebar: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => router.push('/settings')}
-                className={`p-2 rounded-lg transition-colors duration-150 ${isSettingsPage ? 'bg-gray-100' : 'hover:bg-gray-100'
+                onClick={() => setShowModelSettings(true)}
+                className={`p-2 rounded-lg transition-colors duration-150 ${showModelSettings ? 'bg-gray-100' : 'hover:bg-gray-100'
                   }`}
               >
                 <Settings className="w-5 h-5 text-gray-600" />
@@ -773,7 +775,7 @@ const Sidebar: React.FC = () => {
             </button>
 
             <button
-              onClick={() => router.push('/settings')}
+              onClick={() => setShowModelSettings(true)}
               className="w-full flex items-center justify-center px-3 py-1.5 mt-1 mb-1 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors shadow-sm"
             >
               <Settings className="w-4 h-4 mr-2" />
@@ -786,6 +788,24 @@ const Sidebar: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Settings Modal */}
+      <Dialog open={showModelSettings} onOpenChange={setShowModelSettings}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh]" aria-describedby={undefined}>
+          <VisuallyHidden>
+            <DialogTitle>Settings</DialogTitle>
+          </VisuallyHidden>
+          <SettingTabs
+            modelConfig={modelConfig}
+            setModelConfig={setModelConfig}
+            onSave={handleSaveModelConfig}
+            transcriptModelConfig={transcriptModelConfig}
+            setTranscriptModelConfig={setTranscriptModelConfig}
+            onSaveTranscript={handleSaveTranscriptConfig}
+            setSaveSuccess={setSettingsSaveSuccess}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Modal for Delete */}
       <ConfirmationModal
